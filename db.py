@@ -32,6 +32,15 @@ def get_connection():
     return pyodbc.connect(conn_str)
 
 
+def get_db():
+    """FastAPI dependency: one connection per request, always closed afterwards."""
+    conn = get_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
 def check_db() -> bool:
     """Return True if the database answers SELECT 1, False otherwise (never raises)."""
     try:

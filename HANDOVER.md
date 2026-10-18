@@ -33,7 +33,9 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 4. DONE: limited user `app_inventory` created in inventory-dev with db_datareader + db_datawriter only. `.env` now uses it. Verified CREATE TABLE is denied (error 262). `nadmin` is reserved for creating tables/running scripts, not the app.
 5. DONE: `db/001_create_app_user.sql` saved (placeholder password) for reuse on prod.
 6. DONE: `db.py` (get_connection + check_db, password wrapped in braces, connection always closed, errors logged server-side only) and `/health/db` in `main.py` (200 ok / 503 with safe message). Tested: success, wrong password, missing setting.
-7. TODO: DB schema scripts (`db/002_...`) run as nadmin, e.g. items table.
+7. DONE: `db/002_create_items_table.sql` (run as nadmin in the portal on inventory-dev; id IDENTITY PK, unique sku, CHECK quantity>=0, UTC timestamps). Items API built in layers: `schemas.py` (validation), `repository.py` (all SQL, parameterized), `routers/items.py` (POST/GET/PUT/DELETE /items, 201/404/409/422/204), `db.get_db` (one connection per request), 503 handler for pyodbc errors in `main.py`.
+   - Tests: 35 unit tests (fake in-memory repo, run in CI) + 4 integration tests marked `integration` (real dev DB; run locally with `pytest -m integration`; excluded by default via pytest.ini). Live-tested all endpoints against inventory-dev.
+   - For prod: run `db/001` then `db/002` as nadmin on inventory-prod.
 8. Pushed to GitHub (check `git status` for anything new).
 
 ## Lesson 4: GitHub Actions CI (built 2026-10-18)

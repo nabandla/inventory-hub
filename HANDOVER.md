@@ -27,13 +27,14 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 - ODBC Driver 18 for SQL Server already installed. `pyodbc 5.3.0` installed in `.venv`.
 
 ## In progress: Lesson 3 (connect FastAPI to Azure SQL)
-1. DONE: install `pyodbc` in venv.
-2. TODO (user): update `requirements.txt` to include `pyodbc==5.3.0` (it is currently missing; user was asked to predict the command: `pip freeze > requirements.txt`).
-3. TODO: create `.env` (already in `.gitignore`) with server/db/user/password; consider a committed `.env.example` with fake values.
-4. TODO: small script to connect and run `SELECT 1`.
-5. TODO: `/health/db` endpoint that really checks the database.
-6. TODO: create a limited database user for the app (least privilege), not `nadmin`.
-7. TODO: commit and push, confirm `.env` is not included.
+1. DONE: `pyodbc==5.3.0` installed and in `requirements.txt`.
+2. DONE: `.env` (git-ignored; keys DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD, DB_DRIVER) and committed `.env.example` with fake values.
+3. DONE: connection from Python to Azure SQL verified.
+4. DONE: limited user `app_inventory` created in inventory-dev with db_datareader + db_datawriter only. `.env` now uses it. Verified CREATE TABLE is denied (error 262). `nadmin` is reserved for creating tables/running scripts, not the app.
+5. DONE: `db/001_create_app_user.sql` saved (placeholder password) for reuse on prod.
+6. TODO: `/health/db` endpoint that really checks the database (return 503 if unreachable).
+7. TODO: DB schema scripts (`db/002_...`) run as nadmin, e.g. items table.
+8. TODO: push to GitHub (commits may still be local; check `git status`).
 
 ## Upcoming lessons
 - Lesson 4: GitHub Actions CI (install deps, run tests on every push; secrets in GitHub secrets).

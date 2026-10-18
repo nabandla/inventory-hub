@@ -32,9 +32,16 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 3. DONE: connection from Python to Azure SQL verified.
 4. DONE: limited user `app_inventory` created in inventory-dev with db_datareader + db_datawriter only. `.env` now uses it. Verified CREATE TABLE is denied (error 262). `nadmin` is reserved for creating tables/running scripts, not the app.
 5. DONE: `db/001_create_app_user.sql` saved (placeholder password) for reuse on prod.
-6. TODO: `/health/db` endpoint that really checks the database (return 503 if unreachable).
+6. DONE: `db.py` (get_connection + check_db, password wrapped in braces, connection always closed, errors logged server-side only) and `/health/db` in `main.py` (200 ok / 503 with safe message). Tested: success, wrong password, missing setting.
 7. TODO: DB schema scripts (`db/002_...`) run as nadmin, e.g. items table.
-8. TODO: push to GitHub (commits may still be local; check `git status`).
+8. Pushed to GitHub (check `git status` for anything new).
+
+## Secrets plan (decided 2026-10-18)
+- Local dev: `.env` (git-ignored). GitHub Actions: GitHub Secrets. Deployed Azure App Service (dev and prod): **Azure Key Vault + managed identity** (Key Vault references in app settings, so `db.py` keeps reading env vars). Do this in the deploy lesson, not before.
+
+## Notes for later
+- FastAPI `TestClient` needs the extra package `httpx2` (add to requirements when writing tests in the CI lesson).
+- `check_db()` opens a new connection per call; consider pooling/probe frequency later.
 
 ## Upcoming lessons
 - Lesson 4: GitHub Actions CI (install deps, run tests on every push; secrets in GitHub secrets).

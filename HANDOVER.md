@@ -36,6 +36,13 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 7. TODO: DB schema scripts (`db/002_...`) run as nadmin, e.g. items table.
 8. Pushed to GitHub (check `git status` for anything new).
 
+## Lesson 4: GitHub Actions CI (built 2026-10-18)
+- `.github/workflows/ci.yml`: on push/PR to main, ubuntu-latest, Python 3.14, installs unixodbc + `requirements-dev.txt`, runs `pytest -v`. Least-privilege `permissions: contents: read`, concurrency cancel, 10-min timeout, pip cache.
+- `requirements.txt` = runtime deps; `requirements-dev.txt` = `-r requirements.txt` + pytest + httpx2 (test tools).
+- `pytest.ini` (pythonpath=., testpaths=tests); `tests/test_health.py` (routes, DB faked via monkeypatch, 503 leaks nothing), `tests/test_db.py` (settings check, brace-escaped password, failure paths, connection closed). 9 tests pass locally and in a clean copy without `.env`.
+- TODO (user): watch the first run in the GitHub Actions tab; if red, paste the log. Then break a test on purpose to see CI fail, and revert.
+- Next: add branch protection on main requiring CI to pass (GitHub repo Settings), then items table (`db/002_...`) and endpoints, then CD to Azure.
+
 ## Secrets plan (decided 2026-10-18)
 - Local dev: `.env` (git-ignored). GitHub Actions: GitHub Secrets. Deployed Azure App Service (dev and prod): **Azure Key Vault + managed identity** (Key Vault references in app settings, so `db.py` keeps reading env vars). Do this in the deploy lesson, not before.
 

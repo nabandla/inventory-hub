@@ -65,8 +65,28 @@ jobs:
 
       # Only the files the app needs at runtime. Azure installs requirements.txt itself
       # (SCM_DO_BUILD_DURING_DEPLOYMENT=true), so no packages are bundled here.
+      # Every top-level *.py is an application module (tests live in tests/), so new
+      # modules are included automatically instead of being forgotten in a hand-kept list.
       - name: Package application
-        run: zip -r app.zip main.py db.py auth.py schemas.py repository.py routers requirements.txt -x "*/__pycache__/*"
+        run: zip -r app.zip *.py routers requirements.txt -x "*/__pycache__/*"
+
+      # Prove the zip is self-contained BEFORE it can reach Azure: unpack it in an empty
+      # folder with only the runtime dependencies and import the app, as Azure would.
+      - name: Set up Python (package check)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Verify the package starts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unixodbc
+          python -m venv /tmp/pkgenv
+          /tmp/pkgenv/bin/pip install --quiet -r requirements.txt
+          mkdir /tmp/pkgcheck
+          unzip -q app.zip -d /tmp/pkgcheck
+          cd /tmp/pkgcheck
+          /tmp/pkgenv/bin/python -c "import main; print('package imports OK:', len(main.app.routes), 'routes')"
 
       - name: Upload package
         uses: actions/upload-artifact@v4

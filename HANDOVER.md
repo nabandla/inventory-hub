@@ -70,6 +70,10 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 - Next (after prod pipeline verified): Key Vault, retry logic for DB auto-pause, then the React site (CORS + token auth). Postman: environments need a Postman sign-in; otherwise edit the URL by hand.
 - (old plan) Postman with Azure URL (env `Dev Azure`), then Key Vault, prod (inventory-prod DB with db/001 + db/002, prod app, GitHub `prod` environment with required reviewers, new key).
 
+## Incident 2026-10-19: dev AND prod returned Azure's HTML 503 after the CORS commit
+- Cause: the package step listed files by hand and `cors.py` was missing from the zip, so `main.py` crashed on `from cors import configure_cors`. Unit tests ran from the full repo so they could not see it, and the old process kept answering the smoke test until the app restarted.
+- Fix: package `*.py routers requirements.txt` (new modules included automatically) plus a `Verify the package starts` step that unzips into an empty folder, installs runtime requirements only, and imports `main`. Lesson: test the artifact you ship, not just the source tree. Azure's own CORS blade (API > CORS) must stay EMPTY; CORS is handled in the app via `CORS_ORIGINS`.
+
 ## Prod approval gate (found broken 2026-10-19, fixed same day)
 - The `prod` job once started 3 seconds after dev finished = Required reviewers was not saved on the GitHub `prod` environment. User then saved it (Settings > Environments > prod: Required reviewers = nabandla, Prevent self-review OFF, main only). Lesson: always prove a control blocks something; check the job shows "Waiting".
 

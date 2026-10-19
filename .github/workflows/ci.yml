@@ -153,17 +153,18 @@ jobs:
         env:
           BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
         run: |
-          # The old version can keep answering for a short while after the deploy step ends
-          # (for example 404 because /v1/items does not exist there yet), so wait for the new
-          # version. A 200 means authentication is open, which must fail immediately.
+          # A bare 401 is not enough: an older version that is still answering for a moment after
+          # the deploy returns 401 too. Only the new token authentication answers with
+          # "WWW-Authenticate: Bearer". A 200 means authentication is open and fails at once.
           for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items" || true)
-            echo "GET /v1/items without a key, attempt $i/20 -> HTTP $code"
-            if [ "$code" = "401" ]; then exit 0; fi
-            if [ "$code" = "200" ]; then echo "::error::authentication is NOT enforced (got 200 without a key)"; exit 1; fi
+            headers=$(curl -s -D - -o /dev/null --max-time 30 "${BASE_URL%/}/v1/items" || true)
+            code=$(echo "$headers" | head -n1 | awk '{print $2}')
+            echo "GET /v1/items without a token, attempt $i/20 -> HTTP ${code:-none}"
+            if [ "$code" = "401" ] && echo "$headers" | grep -qi '^www-authenticate: *bearer'; then exit 0; fi
+            if [ "$code" = "200" ]; then echo "::error::authentication is NOT enforced (got 200 without a token)"; exit 1; fi
             sleep 15
           done
-          echo "::error::expected 401 without an API key, last status was $code"
+          echo "::error::expected 401 with a Bearer challenge, last status was ${code:-none}"
           exit 1
 
   deploy-prod:
@@ -224,15 +225,16 @@ jobs:
         env:
           BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
         run: |
-          # The old version can keep answering for a short while after the deploy step ends
-          # (for example 404 because /v1/items does not exist there yet), so wait for the new
-          # version. A 200 means authentication is open, which must fail immediately.
+          # A bare 401 is not enough: an older version that is still answering for a moment after
+          # the deploy returns 401 too. Only the new token authentication answers with
+          # "WWW-Authenticate: Bearer". A 200 means authentication is open and fails at once.
           for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items" || true)
-            echo "GET /v1/items without a key, attempt $i/20 -> HTTP $code"
-            if [ "$code" = "401" ]; then exit 0; fi
-            if [ "$code" = "200" ]; then echo "::error::authentication is NOT enforced (got 200 without a key)"; exit 1; fi
+            headers=$(curl -s -D - -o /dev/null --max-time 30 "${BASE_URL%/}/v1/items" || true)
+            code=$(echo "$headers" | head -n1 | awk '{print $2}')
+            echo "GET /v1/items without a token, attempt $i/20 -> HTTP ${code:-none}"
+            if [ "$code" = "401" ] && echo "$headers" | grep -qi '^www-authenticate: *bearer'; then exit 0; fi
+            if [ "$code" = "200" ]; then echo "::error::authentication is NOT enforced (got 200 without a token)"; exit 1; fi
             sleep 15
           done
-          echo "::error::expected 401 without an API key, last status was $code"
+          echo "::error::expected 401 with a Bearer challenge, last status was ${code:-none}"
           exit 1

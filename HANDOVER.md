@@ -70,6 +70,9 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 - Next (after prod pipeline verified): Key Vault, retry logic for DB auto-pause, then the React site (CORS + token auth). Postman: environments need a Postman sign-in; otherwise edit the URL by hand.
 - (old plan) Postman with Azure URL (env `Dev Azure`), then Key Vault, prod (inventory-prod DB with db/001 + db/002, prod app, GitHub `prod` environment with required reviewers, new key).
 
+## Prod approval gate (found broken 2026-10-19, fixed same day)
+- The `prod` job once started 3 seconds after dev finished = Required reviewers was not saved on the GitHub `prod` environment. User then saved it (Settings > Environments > prod: Required reviewers = nabandla, Prevent self-review OFF, main only). Lesson: always prove a control blocks something; check the job shows "Waiting".
+
 ## Roadmap "the proper way" (decided 2026-10-19; user said to ignore the Nov 12 credit deadline)
 Model: a DIFFERENT team will build the frontend in a SEPARATE repo (`inventory-hub-web`), so this API is a product with a contract.
 - **Phase A (in progress): contract + CORS.** A1 DONE: items routes versioned under `/v1/items` (`/health`, `/health/db` stay unversioned; old `/items` now 404; tests in `tests/test_versioning.py`; pipeline 401 check uses `/v1/items`). A2 TODO: CORS allowed origins from a setting (custom header X-API-Key triggers OPTIONS preflight) + tests. A3 TODO: OpenAPI snapshot checked in + CI test that fails on breaking contract changes.

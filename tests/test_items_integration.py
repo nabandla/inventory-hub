@@ -18,7 +18,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def repo():
-    conn = get_connection()
+    conn = get_connection(max_wait_seconds=120)  # the dev database may be paused and need to wake up
     try:
         yield ItemRepository(conn)
     finally:

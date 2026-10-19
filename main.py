@@ -10,7 +10,11 @@ from routers import items
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Inventory Hub")
+app = FastAPI(
+    title="Inventory Hub",
+    version="1.0.0",
+    description="Inventory items API. Item routes are versioned under /v1.",
+)
 configure_cors(app)
 app.include_router(items.router)
 

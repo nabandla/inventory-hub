@@ -3,19 +3,36 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, st
 from auth import require_api_key
 from db import get_db
 from repository import DuplicateSkuError, ItemRepository
-from schemas import Item, ItemCreate, ItemUpdate
+from schemas import ErrorResponse, Item, ItemCreate, ItemUpdate
 
-# The guard on the router protects every current and future /v1/items route
-router = APIRouter(prefix="/v1/items", tags=["items"], dependencies=[Depends(require_api_key)])
+# The guard on the router protects every current and future /v1/items route.
+# The responses listed here are part of the published contract for every item route.
+router = APIRouter(
+    prefix="/v1/items",
+    tags=["items"],
+    dependencies=[Depends(require_api_key)],
+    responses={
+        401: {"model": ErrorResponse, "description": "Missing or invalid X-API-Key header"},
+        503: {"model": ErrorResponse, "description": "Database unavailable (or authentication not configured)"},
+    },
+)
 
 ItemId = Path(gt=0, description="Item id")
+
+NOT_FOUND = {404: {"model": ErrorResponse, "description": "No item with this id"}}
 
 
 def get_repository(conn=Depends(get_db)) -> ItemRepository:
     return ItemRepository(conn)
 
 
-@router.post("", response_model=Item, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=Item,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an item",
+    responses={409: {"model": ErrorResponse, "description": "An item with this SKU already exists"}},
+)
 def create_item(payload: ItemCreate, repo: ItemRepository = Depends(get_repository)):
     try:
         return repo.create(payload.sku, payload.name, payload.quantity)
@@ -23,7 +40,7 @@ def create_item(payload: ItemCreate, repo: ItemRepository = Depends(get_reposito
         raise HTTPException(status.HTTP_409_CONFLICT, detail="An item with this SKU already exists")
 
 
-@router.get("", response_model=list[Item])
+@router.get("", response_model=list[Item], summary="List items (ordered by id, paged)")
 def list_items(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -32,7 +49,7 @@ def list_items(
     return repo.list(limit, offset)
 
 
-@router.get("/{item_id}", response_model=Item)
+@router.get("/{item_id}", response_model=Item, summary="Get one item", responses=NOT_FOUND)
 def get_item(item_id: int = ItemId, repo: ItemRepository = Depends(get_repository)):
     item = repo.get(item_id)
     if item is None:
@@ -40,7 +57,12 @@ def get_item(item_id: int = ItemId, repo: ItemRepository = Depends(get_repositor
     return item
 
 
-@router.put("/{item_id}", response_model=Item)
+@router.put(
+    "/{item_id}",
+    response_model=Item,
+    summary="Update an item's name and quantity (the SKU cannot change)",
+    responses=NOT_FOUND,
+)
 def update_item(
     payload: ItemUpdate,
     item_id: int = ItemId,
@@ -52,7 +74,12 @@ def update_item(
     return item
 
 
-@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an item",
+    responses=NOT_FOUND,
+)
 def delete_item(item_id: int = ItemId, repo: ItemRepository = Depends(get_repository)):
     if not repo.delete(item_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Item not found")

@@ -19,6 +19,12 @@ class ItemUpdate(BaseModel):
     quantity: int = Field(ge=0)
 
 
+class ErrorResponse(BaseModel):
+    """Shape of every error this API returns on purpose (401, 404, 409, 503)."""
+
+    detail: str
+
+
 class Item(BaseModel):
     id: int
     sku: str

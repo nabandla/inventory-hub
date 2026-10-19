@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 
+from auth import require_api_key
 from db import get_db
 from repository import DuplicateSkuError, ItemRepository
 from schemas import Item, ItemCreate, ItemUpdate
 
-router = APIRouter(prefix="/items", tags=["items"])
+# The guard on the router protects every current and future /items route
+router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(require_api_key)])
 
 ItemId = Path(gt=0, description="Item id")
 

@@ -12,10 +12,14 @@ def repo():
     return InMemoryItemRepository()
 
 
+TEST_API_KEY = "unit-test-key"
+
+
 @pytest.fixture
-def client(repo):
+def client(repo, monkeypatch):
+    monkeypatch.setenv("API_KEY", TEST_API_KEY)
     main.app.dependency_overrides[get_repository] = lambda: repo
-    yield TestClient(main.app)
+    yield TestClient(main.app, headers={"X-API-Key": TEST_API_KEY})
     main.app.dependency_overrides.clear()
 
 
@@ -155,7 +159,7 @@ def test_database_failure_returns_503_without_details(client, monkeypatch):
 
     main.app.dependency_overrides[get_repository] = lambda: BrokenRepo()
 
-    response = TestClient(main.app).get("/items")
+    response = client.get("/items")
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}

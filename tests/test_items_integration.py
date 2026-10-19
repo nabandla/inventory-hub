@@ -3,6 +3,7 @@
 Needs a working .env and the items table (db/002_create_items_table.sql).
 Excluded by default (and in CI). Run locally with:  pytest -m integration
 """
+import os
 import uuid
 
 import pytest
@@ -65,7 +66,7 @@ def test_database_rejects_negative_quantity(repo, sku):
 
 
 def test_api_end_to_end_against_real_database(sku):
-    client = TestClient(main.app)
+    client = TestClient(main.app, headers={"X-API-Key": os.environ["API_KEY"]})
 
     created = client.post("/items", json={"sku": sku, "name": "E2E", "quantity": 3})
     assert created.status_code == 201

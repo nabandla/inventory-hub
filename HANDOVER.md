@@ -45,6 +45,17 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 - TODO (user): watch the first run in the GitHub Actions tab; if red, paste the log. Then break a test on purpose to see CI fail, and revert.
 - Next: add branch protection on main requiring CI to pass (GitHub repo Settings), then items table (`db/002_...`) and endpoints, then CD to Azure.
 
+## API-key auth (built 2026-10-19)
+- `auth.py`: `require_api_key` dependency; header `X-API-Key`, constant-time compare, 401 for missing/wrong, **fails closed with 503 if server has no API_KEY**. Attached to the whole `/items` router. `/health` and `/health/db` stay open (Azure probes can't send keys).
+- Dev key generated into local `.env` as `API_KEY` (never shown in chat; user keeps a copy in their password manager). `.env.example` has `API_KEY=change-me`. Generate a DIFFERENT key for prod: `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- 52 unit tests + 4 integration tests pass; live-tested with and without key. Swagger `/docs` shows an Authorize button.
+- Limits (known, accepted for now): one shared key per environment, no per-caller keys/hashing/rotation. For the React site with user logins plan Entra ID/OAuth tokens; never put the API key in browser code; will need CORS.
+- Deferred by user: retry logic for serverless auto-pause (first request after idle can time out with error 258, `check_db`/`get_connection` should retry transient errors with backoff but never retry login failures).
+
+## Hosting decision (2026-10-19)
+- Chosen: **Azure App Service (Linux, Python)** for dev and prod (one plan can host both apps). Function App stays a possible later alternative (team uses them; FastAPI can run via AsgiFunctionApp). Known risk: ODBC Driver 18 may need installing on App Service. Use GitHub Actions + OIDC login for CD; dev auto-deploys, prod needs approval; smoke tests (/health, /health/db) after deploy; Postman environments dev/prod with `base_url` and `api_key`.
+- Next: create App Service plan + dev app in portal (user), startup command, app settings (DB_* and API_KEY), manual deploy + Postman test, then CD, Key Vault, prod.
+
 ## Secrets plan (decided 2026-10-18)
 - Local dev: `.env` (git-ignored). GitHub Actions: GitHub Secrets. Deployed Azure App Service (dev and prod): **Azure Key Vault + managed identity** (Key Vault references in app settings, so `db.py` keeps reading env vars). Do this in the deploy lesson, not before.
 

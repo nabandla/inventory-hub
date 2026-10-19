@@ -133,9 +133,18 @@ jobs:
         env:
           BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items")
-          echo "GET /v1/items without a key -> HTTP $code"
-          [ "$code" = "401" ] || { echo "::error::expected 401 without an API key, got $code"; exit 1; }
+          # The old version can keep answering for a short while after the deploy step ends
+          # (for example 404 because /v1/items does not exist there yet), so wait for the new
+          # version. A 200 means authentication is open, which must fail immediately.
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items" || true)
+            echo "GET /v1/items without a key, attempt $i/20 -> HTTP $code"
+            if [ "$code" = "401" ]; then exit 0; fi
+            if [ "$code" = "200" ]; then echo "::error::authentication is NOT enforced (got 200 without a key)"; exit 1; fi
+            sleep 15
+          done
+          echo "::error::expected 401 without an API key, last status was $code"
+          exit 1
 
   deploy-prod:
     name: Deploy to prod
@@ -195,6 +204,15 @@ jobs:
         env:
           BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items")
-          echo "GET /v1/items without a key -> HTTP $code"
-          [ "$code" = "401" ] || { echo "::error::expected 401 without an API key, got $code"; exit 1; }
+          # The old version can keep answering for a short while after the deploy step ends
+          # (for example 404 because /v1/items does not exist there yet), so wait for the new
+          # version. A 200 means authentication is open, which must fail immediately.
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items" || true)
+            echo "GET /v1/items without a key, attempt $i/20 -> HTTP $code"
+            if [ "$code" = "401" ]; then exit 0; fi
+            if [ "$code" = "200" ]; then echo "::error::authentication is NOT enforced (got 200 without a key)"; exit 1; fi
+            sleep 15
+          done
+          echo "::error::expected 401 without an API key, last status was $code"
+          exit 1

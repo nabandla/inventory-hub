@@ -56,6 +56,15 @@ Last updated: 2026-10-18. No secrets in this file. Never put passwords here.
 - Chosen: **Azure App Service (Linux, Python)** for dev and prod (one plan can host both apps). Function App stays a possible later alternative (team uses them; FastAPI can run via AsgiFunctionApp). Known risk: ODBC Driver 18 may need installing on App Service. Use GitHub Actions + OIDC login for CD; dev auto-deploys, prod needs approval; smoke tests (/health, /health/db) after deploy; Postman environments dev/prod with `base_url` and `api_key`.
 - Next: create App Service plan + dev app in portal (user), startup command, app settings (DB_* and API_KEY), manual deploy + Postman test, then CD, Key Vault, prod.
 
+## Azure dev deployment (set up 2026-10-19)
+- Web app `app-inventory-hub-dev-nb01` (Linux, Python 3.14, Free F1, plan asp-inventory-hub, Central India) in rg-inventory-hub. URL: https://app-inventory-hub-dev-nb01-bshrg6aueegke9bn.centralindia-01.azurewebsites.net
+- App settings (portal): DB_SERVER, DB_NAME=inventory-dev, DB_USER=app_inventory (never nadmin), DB_PASSWORD, DB_DRIVER, API_KEY, SCM_DO_BUILD_DURING_DEPLOYMENT=true. Startup command: `python -m uvicorn main:app --host 0.0.0.0 --port 8000`.
+- Deployment Center (OIDC) failed ("couldn't verify how GitHub Actions issues OIDC tokens"), so OIDC was set up manually: Entra app registration `github-inventory-hub-deploy` with federated credential `github-inventory-hub-dev` (subject uses IDs: `repo:nabandla@18088056/inventory-hub@1424283928:environment:dev`), role Website Contributor on the web app only. GitHub environment `dev` holds secrets AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID.
+- If the login step fails with "No matching federated identity record found", the error prints the real `sub` claim; edit the federated credential to match it.
+- `.github/workflows/ci.yml` is now one pipeline: `test` -> `deploy-dev` (environment dev, OIDC login, zip deploy, smoke test of /health then /health/db with retries). PRs only run tests.
+- Known risks: ODBC Driver 18 may be missing on App Service (symptom: /health ok, /health/db 503; check Log stream); Free F1 cold starts; DB auto-pause.
+- Next: verify first deploy, Postman with Azure URL (env `Dev Azure`), then Key Vault, prod (inventory-prod DB with db/001 + db/002, prod app, GitHub `prod` environment with required reviewers, new key).
+
 ## Secrets plan (decided 2026-10-18)
 - Local dev: `.env` (git-ignored). GitHub Actions: GitHub Secrets. Deployed Azure App Service (dev and prod): **Azure Key Vault + managed identity** (Key Vault references in app settings, so `db.py` keeps reading env vars). Do this in the deploy lesson, not before.
 

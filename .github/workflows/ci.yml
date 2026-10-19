@@ -18,6 +18,7 @@ concurrency:
 
 env:
   AZURE_WEBAPP_NAME_DEV: app-inventory-hub-dev-nb01
+  AZURE_WEBAPP_NAME_PROD: app-inventory-hub-prod-nb01
 
 jobs:
   test:
@@ -49,19 +50,15 @@ jobs:
       - name: Run tests
         run: pytest -v
 
-  deploy-dev:
-    name: Deploy to dev
+  # Build the deployable package once. Dev and prod receive this exact same file,
+  # so prod gets the build that was already tested and smoke-tested in dev.
+  package:
+    name: Package
     needs: test
     # Pull requests only run the tests; they never deploy
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment:
-      name: dev
-      url: ${{ steps.deploy.outputs.webapp-url }}
-    permissions:
-      id-token: write # lets the job request an OIDC token for the Azure login
-      contents: read
+    timeout-minutes: 5
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -71,6 +68,31 @@ jobs:
       - name: Package application
         run: zip -r app.zip main.py db.py auth.py schemas.py repository.py routers requirements.txt -x "*/__pycache__/*"
 
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-package
+          path: app.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-dev:
+    name: Deploy to dev
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: dev
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    permissions:
+      id-token: write # lets the job request an OIDC token for the Azure login
+      contents: read
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+
       - name: Log in to Azure (OIDC, no stored password)
         uses: azure/login@v2
         with:
@@ -78,7 +100,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Azure Web App (dev)
         id: deploy
         uses: azure/webapps-deploy@v3
         with:
@@ -86,7 +108,7 @@ jobs:
           package: app.zip
 
       # A deploy that "succeeded" can still be a broken app, so check it is really up.
-      # Free-tier apps and the serverless database both start slowly, so retry patiently.
+      # Apps and the serverless database both start slowly, so retry patiently.
       - name: Smoke test
         env:
           BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
@@ -105,3 +127,74 @@ jobs:
           }
           check /health 20
           check /health/db 12
+
+      # Read-only: with no key the API must answer 401 (proves auth is active and API_KEY is set)
+      - name: Check authentication is enforced
+        env:
+          BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/items")
+          echo "GET /items without a key -> HTTP $code"
+          [ "$code" = "401" ] || { echo "::error::expected 401 without an API key, got $code"; exit 1; }
+
+  deploy-prod:
+    name: Deploy to prod
+    needs: deploy-dev # only after dev deployed and passed its smoke tests
+    # Only from main, never from another branch started by hand
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The 'prod' environment requires a human approval before this job starts
+    environment:
+      name: prod
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: app-package
+
+      - name: Log in to Azure (OIDC, no stored password)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Web App (prod)
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_PROD }}
+          package: app.zip
+
+      - name: Smoke test
+        env:
+          BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
+        run: |
+          BASE_URL="${BASE_URL%/}"
+          check() {
+            local path="$1" tries="$2" code
+            for i in $(seq 1 "$tries"); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$BASE_URL$path" || true)
+              echo "$path attempt $i/$tries -> HTTP $code"
+              if [ "$code" = "200" ]; then return 0; fi
+              sleep 15
+            done
+            echo "::error::$path did not return 200 after $tries attempts"
+            return 1
+          }
+          check /health 20
+          check /health/db 12
+
+      # Read-only on purpose: never create or change data in prod from a pipeline
+      - name: Check authentication is enforced
+        env:
+          BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/items")
+          echo "GET /items without a key -> HTTP $code"
+          [ "$code" = "401" ] || { echo "::error::expected 401 without an API key, got $code"; exit 1; }

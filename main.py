@@ -12,8 +12,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Inventory Hub",
-    version="1.0.0",
-    description="Inventory items API. Item routes are versioned under /v1.",
+    version="1.1.0",
+    description=(
+        "Inventory items API. Item routes are versioned under /v1 and need a Microsoft Entra ID "
+        "access token (Authorization: Bearer <token>) with the role Items.Read or Items.Write."
+    ),
 )
 configure_cors(app)
 app.include_router(items.router)

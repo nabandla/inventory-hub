@@ -47,11 +47,24 @@ def diff_contract(old: dict, new: dict) -> list[str]:
         for code in sorted(new_codes - old_codes):
             lines.append(f"{ADDITIVE} {method} {path}: response {code} added")
 
+        if old_op.get("security") != new_op.get("security"):
+            lines.append(f"{BREAKING} {method} {path}: authentication requirement changed")
+
         def required_params(op):
             return {p["name"] for p in op.get("parameters", []) if p.get("required")}
 
         for name in sorted(required_params(new_op) - required_params(old_op)):
             lines.append(f"{BREAKING} {method} {path}: parameter '{name}' is now required")
+
+    old_auth = old.get("components", {}).get("securitySchemes", {})
+    new_auth = new.get("components", {}).get("securitySchemes", {})
+    for name in sorted(old_auth.keys() - new_auth.keys()):
+        lines.append(f"{BREAKING} authentication scheme {name} removed")
+    for name in sorted(new_auth.keys() - old_auth.keys()):
+        lines.append(f"{BREAKING} authentication scheme {name} added (callers must now authenticate this way)")
+    for name in sorted(old_auth.keys() & new_auth.keys()):
+        if old_auth[name] != new_auth[name]:
+            lines.append(f"{BREAKING} authentication scheme {name} changed")
 
     old_schemas = old.get("components", {}).get("schemas", {})
     new_schemas = new.get("components", {}).get("schemas", {})

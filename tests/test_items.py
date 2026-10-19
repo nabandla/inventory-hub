@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import main
 from routers.items import get_repository
 from tests.fakes import InMemoryItemRepository
+from tests.tokens import auth_header
 
 
 @pytest.fixture
@@ -12,14 +13,10 @@ def repo():
     return InMemoryItemRepository()
 
 
-TEST_API_KEY = "unit-test-key"
-
-
 @pytest.fixture
-def client(repo, monkeypatch):
-    monkeypatch.setenv("API_KEY", TEST_API_KEY)
+def client(repo, auth_env):
     main.app.dependency_overrides[get_repository] = lambda: repo
-    yield TestClient(main.app, headers={"X-API-Key": TEST_API_KEY})
+    yield TestClient(main.app, headers=auth_header())
     main.app.dependency_overrides.clear()
 
 

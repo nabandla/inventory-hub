@@ -3,7 +3,6 @@
 Needs a working .env and the items table (db/002_create_items_table.sql).
 Excluded by default (and in CI). Run locally with:  pytest -m integration
 """
-import os
 import uuid
 
 import pytest
@@ -12,6 +11,7 @@ from fastapi.testclient import TestClient
 import main
 from db import get_connection
 from repository import DuplicateSkuError, ItemRepository
+from tests.tokens import auth_header
 
 pytestmark = pytest.mark.integration
 
@@ -65,8 +65,8 @@ def test_database_rejects_negative_quantity(repo, sku):
         repo.create(sku, "Negative", -1)
 
 
-def test_api_end_to_end_against_real_database(sku):
-    client = TestClient(main.app, headers={"X-API-Key": os.environ["API_KEY"]})
+def test_api_end_to_end_against_real_database(sku, auth_env):
+    client = TestClient(main.app, headers=auth_header())
 
     created = client.post("/v1/items", json={"sku": sku, "name": "E2E", "quantity": 3})
     assert created.status_code == 201

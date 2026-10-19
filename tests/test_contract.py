@@ -29,7 +29,7 @@ def test_snapshot_covers_the_documented_endpoints():
     saved = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
 
     assert set(saved["paths"]) == {"/health", "/health/db", "/v1/items", "/v1/items/{item_id}"}
-    assert saved["info"]["version"] == "1.0.0"
+    assert len(saved["info"]["version"].split(".")) == 3  # semantic version, e.g. 1.1.0
 
 
 # --- the diff helper itself -----------------------------------------------------------
@@ -90,6 +90,20 @@ def test_renaming_a_path_reports_both_sides(spec):
 
     assert any(line.startswith(BREAKING) and "/v1/items" in line for line in report)
     assert any(line.startswith(ADDITIVE) and "/v2/items" in line for line in report)
+
+
+def test_authentication_changes_are_flagged_as_breaking(spec):
+    new = copy.deepcopy(spec)
+    scheme = next(iter(new["components"]["securitySchemes"]))
+    new["components"]["securitySchemes"]["ApiKeyAuth"] = {"type": "apiKey", "in": "header", "name": "X-API-Key"}
+    del new["components"]["securitySchemes"][scheme]
+    new["paths"]["/v1/items"]["get"]["security"] = [{"ApiKeyAuth": []}]
+
+    report = diff_contract(spec, new)
+
+    assert any(line.startswith(BREAKING) and f"scheme {scheme} removed" in line for line in report)
+    assert any(line.startswith(BREAKING) and "ApiKeyAuth added" in line for line in report)
+    assert any(line.startswith(BREAKING) and "GET /v1/items: authentication requirement changed" in line for line in report)
 
 
 def test_wording_only_change_is_labelled_as_such(spec):

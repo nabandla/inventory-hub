@@ -5,11 +5,12 @@ from fastapi.testclient import TestClient
 from cors import configure_cors, parse_origins
 from routers import items
 from routers.items import get_repository
+import auth
 from tests.fakes import InMemoryItemRepository
+from tests.tokens import AUDIENCE, TENANT, FakeJwks, auth_header
 
 ALLOWED = "http://localhost:5173"
 OTHER = "https://evil.example"
-KEY = "cors-test-key"
 
 
 def build_app(monkeypatch, origins):
@@ -18,7 +19,9 @@ def build_app(monkeypatch, origins):
         monkeypatch.delenv("CORS_ORIGINS", raising=False)
     else:
         monkeypatch.setenv("CORS_ORIGINS", origins)
-    monkeypatch.setenv("API_KEY", KEY)
+    monkeypatch.setenv("AZURE_TENANT_ID", TENANT)
+    monkeypatch.setenv("API_AUDIENCE", AUDIENCE)
+    monkeypatch.setattr(auth, "_jwks_client", lambda tenant_id: FakeJwks())
     app = FastAPI()
     configure_cors(app)
     app.include_router(items.router)
@@ -26,7 +29,7 @@ def build_app(monkeypatch, origins):
     return TestClient(app)
 
 
-def preflight(client, origin, method="POST", headers="x-api-key,content-type"):
+def preflight(client, origin, method="POST", headers="authorization,content-type"):
     return client.options(
         "/v1/items",
         headers={
@@ -61,12 +64,12 @@ def test_rejects_wildcards_and_malformed_origins(raw):
 def test_preflight_from_allowed_origin_succeeds_without_an_api_key(monkeypatch):
     client = build_app(monkeypatch, ALLOWED)
 
-    response = preflight(client, ALLOWED)  # note: no X-API-Key sent on a preflight
+    response = preflight(client, ALLOWED)  # note: no token is sent on a preflight
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == ALLOWED
     allowed_headers = response.headers["access-control-allow-headers"].lower()
-    assert "x-api-key" in allowed_headers and "content-type" in allowed_headers
+    assert "authorization" in allowed_headers and "content-type" in allowed_headers
     assert "POST" in response.headers["access-control-allow-methods"]
 
 
@@ -82,7 +85,7 @@ def test_preflight_from_unlisted_origin_is_refused(monkeypatch):
 def test_preflight_asking_for_unlisted_header_is_refused(monkeypatch):
     client = build_app(monkeypatch, ALLOWED)
 
-    response = preflight(client, ALLOWED, headers="x-api-key,x-sneaky")
+    response = preflight(client, ALLOWED, headers="authorization,x-sneaky")
 
     assert response.status_code == 400
 
@@ -99,18 +102,18 @@ def test_empty_setting_refuses_every_browser_origin(monkeypatch):
 def test_actual_request_from_allowed_origin_gets_cors_header_and_still_needs_a_key(monkeypatch):
     client = build_app(monkeypatch, ALLOWED)
 
-    without_key = client.get("/v1/items", headers={"Origin": ALLOWED})
-    with_key = client.get("/v1/items", headers={"Origin": ALLOWED, "X-API-Key": KEY})
+    without_token = client.get("/v1/items", headers={"Origin": ALLOWED})
+    with_token = client.get("/v1/items", headers={"Origin": ALLOWED, **auth_header()})
 
-    assert without_key.status_code == 401  # CORS is not authentication
-    assert with_key.status_code == 200
-    assert with_key.headers["access-control-allow-origin"] == ALLOWED
+    assert without_token.status_code == 401  # CORS is not authentication
+    assert with_token.status_code == 200
+    assert with_token.headers["access-control-allow-origin"] == ALLOWED
 
 
 def test_actual_request_from_unlisted_origin_gets_no_cors_header(monkeypatch):
     client = build_app(monkeypatch, ALLOWED)
 
-    response = client.get("/v1/items", headers={"Origin": OTHER, "X-API-Key": KEY})
+    response = client.get("/v1/items", headers={"Origin": OTHER, **auth_header()})
 
     assert "access-control-allow-origin" not in response.headers
 

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 logger = logging.getLogger(__name__)
 
 ALLOWED_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-ALLOWED_HEADERS = ["X-API-Key", "Content-Type"]
+ALLOWED_HEADERS = ["Authorization", "Content-Type"]
 
 
 def parse_origins(raw: str | None) -> list[str]:
@@ -41,7 +41,7 @@ def configure_cors(app: FastAPI) -> None:
         allow_origins=origins,
         allow_methods=ALLOWED_METHODS,
         allow_headers=ALLOWED_HEADERS,
-        allow_credentials=False,  # the API key is a header, not a cookie
+        allow_credentials=False,  # the token travels in the Authorization header, not a cookie
         max_age=600,
     )
     logger.info("CORS allowed origins: %s", ", ".join(origins))

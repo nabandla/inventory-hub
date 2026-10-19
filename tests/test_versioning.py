@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+from tests.tokens import auth_header
 
 client = TestClient(main.app)
 
@@ -17,7 +18,7 @@ def test_item_routes_live_under_v1():
 @pytest.mark.parametrize("path", ["/items", "/items/1", "/v2/items"])
 def test_unversioned_and_unknown_versions_are_not_served(path):
     # Not served at all: 404 (not 401) because no such route exists
-    assert client.get(path, headers={"X-API-Key": "anything"}).status_code == 404
+    assert client.get(path, headers=auth_header()).status_code == 404
 
 
 @pytest.mark.parametrize("path", ["/health", "/health/db"])

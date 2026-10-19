@@ -4,12 +4,14 @@ import pyodbc
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from cors import configure_cors
 from db import check_db
 from routers import items
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Inventory Hub")
+configure_cors(app)
 app.include_router(items.router)
 
 

@@ -24,7 +24,7 @@ def client(repo, monkeypatch):
 
 
 def make_item(client, sku="SKU-1", name="Widget", quantity=5):
-    return client.post("/items", json={"sku": sku, "name": name, "quantity": quantity})
+    return client.post("/v1/items", json={"sku": sku, "name": name, "quantity": quantity})
 
 
 def test_create_item_returns_201_and_item(client):
@@ -38,7 +38,7 @@ def test_create_item_returns_201_and_item(client):
 
 
 def test_create_item_quantity_defaults_to_zero(client):
-    response = client.post("/items", json={"sku": "A", "name": "No qty"})
+    response = client.post("/v1/items", json={"sku": "A", "name": "No qty"})
 
     assert response.status_code == 201
     assert response.json()["quantity"] == 0
@@ -64,7 +64,7 @@ def test_create_item_trims_whitespace(client):
     ],
 )
 def test_create_item_rejects_invalid_input(client, payload):
-    assert client.post("/items", json=payload).status_code == 422
+    assert client.post("/v1/items", json=payload).status_code == 422
 
 
 def test_create_duplicate_sku_returns_409(client):
@@ -79,14 +79,14 @@ def test_create_duplicate_sku_returns_409(client):
 def test_get_item(client):
     make_item(client)
 
-    response = client.get("/items/1")
+    response = client.get("/v1/items/1")
 
     assert response.status_code == 200
     assert response.json()["sku"] == "SKU-1"
 
 
 def test_get_missing_item_returns_404(client):
-    response = client.get("/items/999")
+    response = client.get("/v1/items/999")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Item not found"}
@@ -94,15 +94,15 @@ def test_get_missing_item_returns_404(client):
 
 @pytest.mark.parametrize("bad_id", ["0", "-5", "abc"])
 def test_get_item_rejects_bad_id(client, bad_id):
-    assert client.get(f"/items/{bad_id}").status_code == 422
+    assert client.get(f"/v1/items/{bad_id}").status_code == 422
 
 
 def test_list_items_in_id_order_with_pagination(client):
     for n in range(1, 6):
         make_item(client, sku=f"S{n}", name=f"Item {n}")
 
-    everything = client.get("/items").json()
-    page = client.get("/items", params={"limit": 2, "offset": 2}).json()
+    everything = client.get("/v1/items").json()
+    page = client.get("/v1/items", params={"limit": 2, "offset": 2}).json()
 
     assert [i["sku"] for i in everything] == ["S1", "S2", "S3", "S4", "S5"]
     assert [i["sku"] for i in page] == ["S3", "S4"]
@@ -110,26 +110,26 @@ def test_list_items_in_id_order_with_pagination(client):
 
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
 def test_list_items_rejects_bad_paging(client, params):
-    assert client.get("/items", params=params).status_code == 422
+    assert client.get("/v1/items", params=params).status_code == 422
 
 
 def test_list_items_empty(client):
-    assert client.get("/items").json() == []
+    assert client.get("/v1/items").json() == []
 
 
 def test_update_item(client):
     make_item(client)
 
-    response = client.put("/items/1", json={"name": "Widget v2", "quantity": 42})
+    response = client.put("/v1/items/1", json={"name": "Widget v2", "quantity": 42})
 
     assert response.status_code == 200
     body = response.json()
     assert (body["name"], body["quantity"], body["sku"]) == ("Widget v2", 42, "SKU-1")
-    assert client.get("/items/1").json()["quantity"] == 42
+    assert client.get("/v1/items/1").json()["quantity"] == 42
 
 
 def test_update_missing_item_returns_404(client):
-    response = client.put("/items/999", json={"name": "x", "quantity": 1})
+    response = client.put("/v1/items/999", json={"name": "x", "quantity": 1})
 
     assert response.status_code == 404
 
@@ -137,19 +137,19 @@ def test_update_missing_item_returns_404(client):
 def test_update_rejects_negative_quantity(client):
     make_item(client)
 
-    assert client.put("/items/1", json={"name": "x", "quantity": -3}).status_code == 422
+    assert client.put("/v1/items/1", json={"name": "x", "quantity": -3}).status_code == 422
 
 
 def test_delete_item_then_gone(client):
     make_item(client)
 
-    first = client.delete("/items/1")
-    second = client.delete("/items/1")
+    first = client.delete("/v1/items/1")
+    second = client.delete("/v1/items/1")
 
     assert first.status_code == 204
     assert first.content == b""
     assert second.status_code == 404
-    assert client.get("/items/1").status_code == 404
+    assert client.get("/v1/items/1").status_code == 404
 
 
 def test_database_failure_returns_503_without_details(client, monkeypatch):
@@ -159,7 +159,7 @@ def test_database_failure_returns_503_without_details(client, monkeypatch):
 
     main.app.dependency_overrides[get_repository] = lambda: BrokenRepo()
 
-    response = client.get("/items")
+    response = client.get("/v1/items")
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Database unavailable"}

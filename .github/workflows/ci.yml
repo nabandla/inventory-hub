@@ -133,8 +133,8 @@ jobs:
         env:
           BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/items")
-          echo "GET /items without a key -> HTTP $code"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items")
+          echo "GET /v1/items without a key -> HTTP $code"
           [ "$code" = "401" ] || { echo "::error::expected 401 without an API key, got $code"; exit 1; }
 
   deploy-prod:
@@ -195,6 +195,6 @@ jobs:
         env:
           BASE_URL: ${{ steps.deploy.outputs.webapp-url }}
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/items")
-          echo "GET /items without a key -> HTTP $code"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "${BASE_URL%/}/v1/items")
+          echo "GET /v1/items without a key -> HTTP $code"
           [ "$code" = "401" ] || { echo "::error::expected 401 without an API key, got $code"; exit 1; }

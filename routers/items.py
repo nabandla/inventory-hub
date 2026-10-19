@@ -5,8 +5,8 @@ from db import get_db
 from repository import DuplicateSkuError, ItemRepository
 from schemas import Item, ItemCreate, ItemUpdate
 
-# The guard on the router protects every current and future /items route
-router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(require_api_key)])
+# The guard on the router protects every current and future /v1/items route
+router = APIRouter(prefix="/v1/items", tags=["items"], dependencies=[Depends(require_api_key)])
 
 ItemId = Path(gt=0, description="Item id")
 

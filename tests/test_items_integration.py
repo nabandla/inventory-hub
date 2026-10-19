@@ -68,12 +68,12 @@ def test_database_rejects_negative_quantity(repo, sku):
 def test_api_end_to_end_against_real_database(sku):
     client = TestClient(main.app, headers={"X-API-Key": os.environ["API_KEY"]})
 
-    created = client.post("/items", json={"sku": sku, "name": "E2E", "quantity": 3})
+    created = client.post("/v1/items", json={"sku": sku, "name": "E2E", "quantity": 3})
     assert created.status_code == 201
     item_id = created.json()["id"]
 
-    assert client.get(f"/items/{item_id}").json()["name"] == "E2E"
-    assert client.post("/items", json={"sku": sku, "name": "Again"}).status_code == 409
-    assert client.put(f"/items/{item_id}", json={"name": "E2E v2", "quantity": 4}).json()["quantity"] == 4
-    assert client.delete(f"/items/{item_id}").status_code == 204
-    assert client.get(f"/items/{item_id}").status_code == 404
+    assert client.get(f"/v1/items/{item_id}").json()["name"] == "E2E"
+    assert client.post("/v1/items", json={"sku": sku, "name": "Again"}).status_code == 409
+    assert client.put(f"/v1/items/{item_id}", json={"name": "E2E v2", "quantity": 4}).json()["quantity"] == 4
+    assert client.delete(f"/v1/items/{item_id}").status_code == 204
+    assert client.get(f"/v1/items/{item_id}").status_code == 404

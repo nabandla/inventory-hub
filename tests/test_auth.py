@@ -24,7 +24,7 @@ def configured(monkeypatch):
 
 
 def test_missing_key_is_rejected(configured):
-    response = TestClient(main.app).get("/items")
+    response = TestClient(main.app).get("/v1/items")
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid or missing API key"}
@@ -32,25 +32,25 @@ def test_missing_key_is_rejected(configured):
 
 
 def test_wrong_key_is_rejected(configured):
-    response = TestClient(main.app).get("/items", headers={"X-API-Key": "nope"})
+    response = TestClient(main.app).get("/v1/items", headers={"X-API-Key": "nope"})
 
     assert response.status_code == 401
 
 
 def test_empty_key_header_is_rejected(configured):
-    assert TestClient(main.app).get("/items", headers={"X-API-Key": ""}).status_code == 401
+    assert TestClient(main.app).get("/v1/items", headers={"X-API-Key": ""}).status_code == 401
 
 
 def test_key_with_different_length_or_case_is_rejected(configured):
     client = TestClient(main.app)
 
-    assert client.get("/items", headers={"X-API-Key": KEY.upper()}).status_code == 401
-    assert client.get("/items", headers={"X-API-Key": KEY + "x"}).status_code == 401
-    assert client.get("/items", headers={"X-API-Key": KEY[:-1]}).status_code == 401
+    assert client.get("/v1/items", headers={"X-API-Key": KEY.upper()}).status_code == 401
+    assert client.get("/v1/items", headers={"X-API-Key": KEY + "x"}).status_code == 401
+    assert client.get("/v1/items", headers={"X-API-Key": KEY[:-1]}).status_code == 401
 
 
 def test_non_ascii_key_does_not_crash(configured):
-    response = TestClient(main.app).get("/items", headers={"X-API-Key": "kéy".encode("utf-8")})
+    response = TestClient(main.app).get("/v1/items", headers={"X-API-Key": "kéy".encode("utf-8")})
 
     assert response.status_code == 401
 
@@ -58,11 +58,11 @@ def test_non_ascii_key_does_not_crash(configured):
 @pytest.mark.parametrize(
     "method,path,body",
     [
-        ("get", "/items", None),
-        ("post", "/items", {"sku": "A", "name": "x"}),
-        ("get", "/items/1", None),
-        ("put", "/items/1", {"name": "x", "quantity": 1}),
-        ("delete", "/items/1", None),
+        ("get", "/v1/items", None),
+        ("post", "/v1/items", {"sku": "A", "name": "x"}),
+        ("get", "/v1/items/1", None),
+        ("put", "/v1/items/1", {"name": "x", "quantity": 1}),
+        ("delete", "/v1/items/1", None),
     ],
 )
 def test_every_items_route_requires_a_key(configured, method, path, body):
@@ -75,7 +75,7 @@ def test_correct_key_is_accepted(monkeypatch):
     monkeypatch.setenv("API_KEY", KEY)
     main.app.dependency_overrides[get_repository] = lambda: InMemoryItemRepository()
     try:
-        response = TestClient(main.app).get("/items", headers={"X-API-Key": KEY})
+        response = TestClient(main.app).get("/v1/items", headers={"X-API-Key": KEY})
     finally:
         main.app.dependency_overrides.clear()
 
@@ -92,8 +92,8 @@ def test_fails_closed_when_server_has_no_key(monkeypatch, configured_value):
     main.app.dependency_overrides[get_repository] = lambda: ExplodingRepo()
     try:
         client = TestClient(main.app)
-        with_empty_key = client.get("/items", headers={"X-API-Key": ""})
-        with_some_key = client.get("/items", headers={"X-API-Key": "anything"})
+        with_empty_key = client.get("/v1/items", headers={"X-API-Key": ""})
+        with_some_key = client.get("/v1/items", headers={"X-API-Key": "anything"})
     finally:
         main.app.dependency_overrides.clear()
 
@@ -102,7 +102,7 @@ def test_fails_closed_when_server_has_no_key(monkeypatch, configured_value):
 
 
 def test_error_responses_never_contain_the_key(configured):
-    response = TestClient(main.app).get("/items", headers={"X-API-Key": "wrong"})
+    response = TestClient(main.app).get("/v1/items", headers={"X-API-Key": "wrong"})
 
     assert KEY not in response.text
     assert KEY not in str(response.headers)
